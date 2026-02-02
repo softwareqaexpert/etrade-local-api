@@ -8,6 +8,15 @@ from api.config import settings
 logger = logging.getLogger(__name__)
 
 
+# Set correct OAuth URLs based on sandbox/prod
+if settings.etrade_sandbox:
+    etrade_client.oauth.req_token_url = "https://apisb.etrade.com/oauth/request_token"
+    etrade_client.oauth.access_token_url = "https://apisb.etrade.com/oauth/access_token"
+else:
+    etrade_client.oauth.req_token_url = "https://api.etrade.com/oauth/request_token"
+    etrade_client.oauth.access_token_url = "https://api.etrade.com/oauth/access_token"
+
+
 class OAuthManager:
     """Manages OAuth flow with E*TRADE."""
 
