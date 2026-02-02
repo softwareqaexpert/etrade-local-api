@@ -81,6 +81,12 @@ def test_portfolio_endpoint_exists(client):
     assert response.status_code != 404
 
 
+def test_balance_endpoint_exists(client):
+    """Test balance endpoint exists."""
+    response = client.get("/accounts/test-account-key/balance")
+    assert response.status_code != 404
+
+
 def test_portfolio_requires_auth(client):
     """Test portfolio endpoint returns error for invalid account."""
     response = client.get("/accounts/test-account-key/portfolio")

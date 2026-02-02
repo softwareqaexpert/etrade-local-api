@@ -184,6 +184,51 @@ async def get_accounts():
         }
 
 
+@app.get("/accounts/{account_id_key}/balance")
+async def get_balance(account_id_key: str, real_time: bool = True):
+    """
+    Get account balance.
+    
+    Args:
+        account_id_key: The accountIdKey from /accounts endpoint
+        real_time: Whether to get real-time NAV (default True)
+    
+    Returns: Cash available, buying power, etc.
+    """
+    try:
+        if not oauth_manager.ensure_authenticated():
+            return {
+                "status": "error",
+                "error": "Not authenticated. Call /oauth/request-token first.",
+            }
+        
+        logger.info(f"Fetching balance for account: {account_id_key}")
+        
+        if settings.etrade_sandbox:
+            url = f"https://apisb.etrade.com/v1/accounts/{account_id_key}/balance"
+        else:
+            url = f"https://api.etrade.com/v1/accounts/{account_id_key}/balance"
+        
+        params = {
+            "instType": "BROKERAGE",
+            "realTimeNAV": str(real_time).lower(),
+        }
+        
+        response = oauth_manager.session.get(url, params=params)
+        response.raise_for_status()
+        
+        return {
+            "status": "success",
+            "balance": response.text,
+        }
+    except Exception as e:
+        logger.error(f"Error fetching balance: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+        }
+
+
 @app.get("/accounts/{account_id_key}/portfolio")
 async def get_portfolio(account_id_key: str):
     """
