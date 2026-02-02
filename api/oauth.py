@@ -16,6 +16,8 @@ class OAuthManager:
         self.request_token: Optional[str] = None
         self.request_token_secret: Optional[str] = None
         self.oauth_verifier: Optional[str] = None
+        self.access_token: Optional[str] = None
+        self.access_token_secret: Optional[str] = None
 
     def get_request_token(self) -> Dict[str, str]:
         """
@@ -100,16 +102,33 @@ class OAuthManager:
             # Get access token using verifier
             access_token = etrade_client.oauth.get_access_token(self.oauth_verifier)
             
-            logger.info(f"Got access token: {access_token.get('oauth_token', '')[:20]}...")
+            # Store access tokens for future API calls
+            self.access_token = access_token.get("oauth_token", "")
+            self.access_token_secret = access_token.get("oauth_token_secret", "")
+            
+            # Update etrade_client with access tokens for API calls
+            etrade_client.oauth.resource_owner_key = self.access_token
+            etrade_client.oauth.resource_owner_secret = self.access_token_secret
+            
+            logger.info(f"Got access token: {self.access_token[:20] if self.access_token else 'None'}...")
             
             return {
-                "oauth_token": access_token.get("oauth_token", ""),
-                "oauth_token_secret": access_token.get("oauth_token_secret", ""),
+                "oauth_token": self.access_token,
+                "oauth_token_secret": self.access_token_secret,
             }
             
         except Exception as e:
             logger.error(f"Error exchanging verifier for access token: {e}")
             raise
+
+    def is_authenticated(self) -> bool:
+        """
+        Check if we have a valid access token.
+        
+        Returns:
+            True if access token is available, False otherwise
+        """
+        return bool(self.access_token and self.access_token_secret)
 
 
 # Global OAuth manager instance

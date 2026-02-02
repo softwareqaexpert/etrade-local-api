@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.config import settings
 from api.oauth import oauth_manager
+from api.etrade_client import etrade_client
 
 # Configure logging
 logging.basicConfig(level=settings.log_level)
@@ -76,6 +77,77 @@ async def oauth_request_token():
         }
     except Exception as e:
         logger.error(f"OAuth request token error: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+        }
+
+
+@app.get("/oauth/callback")
+async def oauth_callback(oauth_token: str, oauth_verifier: str):
+    """
+    Step 2 of OAuth flow: Handle callback from E*TRADE authorization.
+    
+    E*TRADE redirects here with oauth_token and oauth_verifier.
+    We exchange the verifier for an access token.
+    """
+    try:
+        if not oauth_verifier:
+            return {
+                "status": "error",
+                "error": "oauth_verifier is required",
+            }
+        
+        logger.info(f"OAuth callback received with verifier: {oauth_verifier}")
+        
+        # Set the verifier
+        oauth_manager.set_oauth_verifier(oauth_verifier)
+        
+        # Exchange for access token
+        access_token_data = oauth_manager.get_access_token()
+        
+        return {
+            "status": "success",
+            "message": "OAuth authentication complete",
+            "oauth_token": access_token_data["oauth_token"],
+            "oauth_token_secret": access_token_data["oauth_token_secret"],
+        }
+    except Exception as e:
+        logger.error(f"OAuth callback error: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+        }
+
+
+@app.get("/accounts")
+async def get_accounts():
+    """
+    Get list of accounts for authenticated user.
+    
+    Requires: Valid OAuth access token
+    Returns: List of accounts with IDs and balances
+    """
+    try:
+        if not oauth_manager.is_authenticated():
+            return {
+                "status": "error",
+                "error": "Not authenticated. Call /oauth/request-token first.",
+            }
+        
+        logger.info("Fetching accounts from E*TRADE")
+        
+        # Call E*TRADE Accounts API to get list
+        accounts_list = etrade_client.accounts.get_account_list()
+        
+        logger.info(f"Got accounts response")
+        
+        return {
+            "status": "success",
+            "accounts": accounts_list,
+        }
+    except Exception as e:
+        logger.error(f"Error fetching accounts: {e}")
         return {
             "status": "error",
             "error": str(e),

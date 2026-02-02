@@ -51,3 +51,24 @@ def test_oauth_request_token_returns_valid_data(client):
         assert "oauth_token" in data
         assert "oauth_token_secret" in data
         assert "authorization_url" in data
+
+
+def test_oauth_callback_endpoint_exists(client):
+    """Test OAuth callback endpoint exists."""
+    response = client.get("/oauth/callback?oauth_token=test&oauth_verifier=12345")
+    # Should not be 404 (endpoint should exist)
+    assert response.status_code != 404
+
+
+def test_oauth_callback_requires_verifier(client):
+    """Test OAuth callback requires oauth_verifier parameter."""
+    response = client.get("/oauth/callback?oauth_token=test")
+    # Should fail without verifier or handle gracefully
+    assert response.status_code in [400, 422, 500]  # Error response
+
+
+def test_accounts_endpoint_exists(client):
+    """Test accounts endpoint exists."""
+    response = client.get("/accounts")
+    # Should not be 404 (endpoint should exist)
+    assert response.status_code != 404
