@@ -305,6 +305,191 @@ async def get_all_portfolios():
         }
 
 
+# =============================================================================
+# Market API Endpoints
+# =============================================================================
+
+@app.get("/market/quote/{symbols}")
+async def get_quotes(symbols: str, detail_flag: str = "ALL"):
+    """
+    Get stock quotes for one or more symbols.
+    
+    Args:
+        symbols: Comma-separated symbols (e.g., "AAPL,GOOG,MSFT")
+        detail_flag: ALL, FUNDAMENTAL, INTRADAY, OPTIONS, WEEK_52
+    
+    Returns: Quote data including price, bid/ask, volume, etc.
+    """
+    try:
+        if not oauth_manager.ensure_authenticated():
+            return {
+                "status": "error",
+                "error": "Not authenticated. Call /oauth/request-token first.",
+            }
+        
+        logger.info(f"Fetching quotes for: {symbols}")
+        
+        if settings.etrade_sandbox:
+            url = f"https://apisb.etrade.com/v1/market/quote/{symbols}"
+        else:
+            url = f"https://api.etrade.com/v1/market/quote/{symbols}"
+        
+        response = oauth_manager.session.get(url, params={"detailFlag": detail_flag})
+        response.raise_for_status()
+        
+        return {
+            "status": "success",
+            "quotes": response.text,
+        }
+    except Exception as e:
+        logger.error(f"Error fetching quotes: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+        }
+
+
+@app.get("/market/lookup/{search}")
+async def lookup_symbol(search: str):
+    """
+    Look up securities by name or partial symbol.
+    
+    Args:
+        search: Search term (e.g., "apple", "micro")
+    
+    Returns: List of matching securities with symbols.
+    """
+    try:
+        if not oauth_manager.ensure_authenticated():
+            return {
+                "status": "error",
+                "error": "Not authenticated. Call /oauth/request-token first.",
+            }
+        
+        logger.info(f"Looking up: {search}")
+        
+        if settings.etrade_sandbox:
+            url = f"https://apisb.etrade.com/v1/market/lookup/{search}"
+        else:
+            url = f"https://api.etrade.com/v1/market/lookup/{search}"
+        
+        response = oauth_manager.session.get(url)
+        response.raise_for_status()
+        
+        return {
+            "status": "success",
+            "results": response.text,
+        }
+    except Exception as e:
+        logger.error(f"Error looking up symbol: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+        }
+
+
+@app.get("/market/optionchains")
+async def get_option_chains(
+    symbol: str,
+    expiry_year: int = None,
+    expiry_month: int = None,
+    expiry_day: int = None,
+    strike_price_near: float = None,
+    no_of_strikes: int = None,
+    chain_type: str = "CALLPUT",
+):
+    """
+    Get option chains for a symbol.
+    
+    Args:
+        symbol: Underlying symbol (required)
+        expiry_year, expiry_month, expiry_day: Expiration date
+        strike_price_near: Center strike price
+        no_of_strikes: Number of strikes to return
+        chain_type: CALL, PUT, or CALLPUT
+    """
+    try:
+        if not oauth_manager.ensure_authenticated():
+            return {
+                "status": "error",
+                "error": "Not authenticated. Call /oauth/request-token first.",
+            }
+        
+        logger.info(f"Fetching option chains for: {symbol}")
+        
+        if settings.etrade_sandbox:
+            url = "https://apisb.etrade.com/v1/market/optionchains"
+        else:
+            url = "https://api.etrade.com/v1/market/optionchains"
+        
+        params = {"symbol": symbol, "chainType": chain_type}
+        if expiry_year:
+            params["expiryYear"] = expiry_year
+        if expiry_month:
+            params["expiryMonth"] = expiry_month
+        if expiry_day:
+            params["expiryDay"] = expiry_day
+        if strike_price_near:
+            params["strikePriceNear"] = strike_price_near
+        if no_of_strikes:
+            params["noOfStrikes"] = no_of_strikes
+        
+        response = oauth_manager.session.get(url, params=params)
+        response.raise_for_status()
+        
+        return {
+            "status": "success",
+            "optionChains": response.text,
+        }
+    except Exception as e:
+        logger.error(f"Error fetching option chains: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+        }
+
+
+@app.get("/market/optionexpiredate")
+async def get_option_expiry_dates(symbol: str, expiry_type: str = "ALL"):
+    """
+    Get option expiry dates for a symbol.
+    
+    Args:
+        symbol: Underlying symbol (required)
+        expiry_type: ALL, WEEKLY, MONTHLY, QUARTERLY
+    """
+    try:
+        if not oauth_manager.ensure_authenticated():
+            return {
+                "status": "error",
+                "error": "Not authenticated. Call /oauth/request-token first.",
+            }
+        
+        logger.info(f"Fetching option expiry dates for: {symbol}")
+        
+        if settings.etrade_sandbox:
+            url = "https://apisb.etrade.com/v1/market/optionexpiredate"
+        else:
+            url = "https://api.etrade.com/v1/market/optionexpiredate"
+        
+        response = oauth_manager.session.get(url, params={
+            "symbol": symbol,
+            "expiryType": expiry_type,
+        })
+        response.raise_for_status()
+        
+        return {
+            "status": "success",
+            "expiryDates": response.text,
+        }
+    except Exception as e:
+        logger.error(f"Error fetching option expiry dates: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+        }
+
+
 if __name__ == "__main__":
     import uvicorn
 

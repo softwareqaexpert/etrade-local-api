@@ -93,3 +93,27 @@ def test_portfolios_endpoint_exists(client):
     """Test combined portfolios endpoint exists."""
     response = client.get("/portfolios")
     assert response.status_code != 404
+
+
+def test_market_quote_endpoint_exists(client):
+    """Test market quote endpoint exists."""
+    response = client.get("/market/quote/AAPL")
+    assert response.status_code != 404
+
+
+def test_market_lookup_endpoint_exists(client):
+    """Test market lookup endpoint exists."""
+    response = client.get("/market/lookup/apple")
+    assert response.status_code != 404
+
+
+def test_market_optionchains_endpoint_exists(client):
+    """Test option chains endpoint exists."""
+    response = client.get("/market/optionchains?symbol=AAPL")
+    assert response.status_code != 404
+
+
+def test_market_optionexpiredate_endpoint_exists(client):
+    """Test option expiry dates endpoint exists."""
+    response = client.get("/market/optionexpiredate?symbol=AAPL")
+    assert response.status_code != 404
