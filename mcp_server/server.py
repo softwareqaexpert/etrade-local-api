@@ -537,7 +537,8 @@ def etrade_cancel_order(account_id_key: str, order_id: str) -> dict:
 def main():
     """Run the MCP server."""
     logger.info("Starting E*TRADE MCP Server")
-    server.run()
+    # Use transport="stdio" and hide banner for Claude Desktop compatibility
+    server.run(transport="stdio", show_banner=False)
 
 
 if __name__ == "__main__":
