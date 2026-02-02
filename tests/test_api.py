@@ -101,6 +101,12 @@ def test_portfolios_endpoint_exists(client):
     assert response.status_code != 404
 
 
+def test_balances_endpoint_exists(client):
+    """Test combined balances endpoint exists."""
+    response = client.get("/balances")
+    assert response.status_code != 404
+
+
 def test_market_quote_endpoint_exists(client):
     """Test market quote endpoint exists."""
     response = client.get("/market/quote/AAPL")

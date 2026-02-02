@@ -272,6 +272,80 @@ async def get_portfolio(account_id_key: str):
         }
 
 
+@app.get("/balances")
+async def get_all_balances():
+    """
+    Get balances for ALL accounts.
+    
+    Returns each account with its balance info.
+    """
+    import xml.etree.ElementTree as ET
+    
+    try:
+        if not oauth_manager.ensure_authenticated():
+            return {
+                "status": "error",
+                "error": "Not authenticated. Call /oauth/request-token first.",
+            }
+        
+        logger.info("Fetching all balances...")
+        if settings.etrade_sandbox:
+            accounts_url = "https://apisb.etrade.com/v1/accounts/list"
+            base_url = "https://apisb.etrade.com/v1"
+        else:
+            accounts_url = "https://api.etrade.com/v1/accounts/list"
+            base_url = "https://api.etrade.com/v1"
+        
+        accounts_response = oauth_manager.session.get(accounts_url)
+        accounts_response.raise_for_status()
+        
+        root = ET.fromstring(accounts_response.text)
+        accounts = []
+        for account in root.findall('.//Account'):
+            accounts.append({
+                "accountIdKey": account.find('accountIdKey').text,
+                "accountDesc": account.find('accountDesc').text,
+                "accountType": account.find('accountType').text,
+            })
+        
+        logger.info(f"Found {len(accounts)} accounts")
+        
+        balances = []
+        for account in accounts:
+            account_id_key = account["accountIdKey"]
+            logger.info(f"Fetching balance for {account['accountDesc']}...")
+            
+            balance_url = f"{base_url}/accounts/{account_id_key}/balance"
+            balance_response = oauth_manager.session.get(
+                balance_url, 
+                params={"instType": "BROKERAGE", "realTimeNAV": "true"}
+            )
+            
+            if balance_response.status_code == 200:
+                balances.append({
+                    "account": account,
+                    "balance": balance_response.text,
+                })
+            else:
+                balances.append({
+                    "account": account,
+                    "balance": None,
+                    "error": f"Status {balance_response.status_code}",
+                })
+        
+        return {
+            "status": "success",
+            "account_count": len(accounts),
+            "balances": balances,
+        }
+    except Exception as e:
+        logger.error(f"Error fetching balances: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+        }
+
+
 @app.get("/portfolios")
 async def get_all_portfolios():
     """
