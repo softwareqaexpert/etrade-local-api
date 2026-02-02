@@ -154,6 +154,49 @@ async def get_accounts():
         }
 
 
+@app.get("/accounts/{account_id_key}/portfolio")
+async def get_portfolio(account_id_key: str):
+    """
+    Get portfolio positions for a specific account.
+    
+    Args:
+        account_id_key: The accountIdKey from /accounts endpoint
+    
+    Returns: List of positions with symbol, quantity, market value, gain/loss
+    """
+    try:
+        if not oauth_manager.is_authenticated():
+            return {
+                "status": "error",
+                "error": "Not authenticated. Call /oauth/request-token first.",
+            }
+        
+        logger.info(f"Fetching portfolio for account: {account_id_key}")
+        
+        # Build URL for E*TRADE portfolio API
+        if settings.etrade_sandbox:
+            url = f"https://apisb.etrade.com/v1/accounts/{account_id_key}/portfolio"
+        else:
+            url = f"https://api.etrade.com/v1/accounts/{account_id_key}/portfolio"
+        
+        # Use authenticated session
+        response = oauth_manager.session.get(url)
+        response.raise_for_status()
+        
+        logger.info(f"Got portfolio response")
+        
+        return {
+            "status": "success",
+            "portfolio": response.text,
+        }
+    except Exception as e:
+        logger.error(f"Error fetching portfolio: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+        }
+
+
 if __name__ == "__main__":
     import uvicorn
 

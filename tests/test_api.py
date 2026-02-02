@@ -72,3 +72,19 @@ def test_accounts_endpoint_exists(client):
     response = client.get("/accounts")
     # Should not be 404 (endpoint should exist)
     assert response.status_code != 404
+
+
+def test_portfolio_endpoint_exists(client):
+    """Test portfolio endpoint exists."""
+    response = client.get("/accounts/test-account-key/portfolio")
+    # Should not be 404 (endpoint should exist)
+    assert response.status_code != 404
+
+
+def test_portfolio_requires_auth(client):
+    """Test portfolio endpoint requires authentication."""
+    response = client.get("/accounts/test-account-key/portfolio")
+    data = response.json()
+    # Should return error about authentication
+    assert data["status"] == "error"
+    assert "authenticated" in data["error"].lower() or "auth" in data["error"].lower()
