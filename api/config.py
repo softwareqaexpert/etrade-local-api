@@ -1,13 +1,18 @@
 """Configuration management using Pydantic settings."""
 
+from pathlib import Path
 from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
+
+# Get project root directory (where .env lives)
+PROJECT_ROOT = Path(__file__).parent.parent
+ENV_FILE = PROJECT_ROOT / ".env"
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    model_config = ConfigDict(env_file=".env", case_sensitive=False)
+    model_config = ConfigDict(env_file=str(ENV_FILE), case_sensitive=False)
 
     # E*TRADE OAuth - Sandbox
     etrade_consumer_key_sandbox: str = ""
