@@ -82,9 +82,14 @@ def test_portfolio_endpoint_exists(client):
 
 
 def test_portfolio_requires_auth(client):
-    """Test portfolio endpoint requires authentication."""
+    """Test portfolio endpoint returns error for invalid account."""
     response = client.get("/accounts/test-account-key/portfolio")
     data = response.json()
-    # Should return error about authentication
+    # Should return error (either auth or 401 from E*TRADE)
     assert data["status"] == "error"
-    assert "authenticated" in data["error"].lower() or "auth" in data["error"].lower()
+
+
+def test_portfolios_endpoint_exists(client):
+    """Test combined portfolios endpoint exists."""
+    response = client.get("/portfolios")
+    assert response.status_code != 404

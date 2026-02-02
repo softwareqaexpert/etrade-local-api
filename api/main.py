@@ -227,6 +227,84 @@ async def get_portfolio(account_id_key: str):
         }
 
 
+@app.get("/portfolios")
+async def get_all_portfolios():
+    """
+    Get portfolios for ALL accounts.
+    
+    Fetches account list, then retrieves portfolio for each account.
+    Returns combined results.
+    """
+    import xml.etree.ElementTree as ET
+    
+    try:
+        if not oauth_manager.ensure_authenticated():
+            return {
+                "status": "error",
+                "error": "Not authenticated. Call /oauth/request-token first.",
+            }
+        
+        # Step 1: Get all accounts
+        logger.info("Fetching all accounts...")
+        if settings.etrade_sandbox:
+            accounts_url = "https://apisb.etrade.com/v1/accounts/list"
+            base_url = "https://apisb.etrade.com/v1"
+        else:
+            accounts_url = "https://api.etrade.com/v1/accounts/list"
+            base_url = "https://api.etrade.com/v1"
+        
+        accounts_response = oauth_manager.session.get(accounts_url)
+        accounts_response.raise_for_status()
+        
+        # Parse accounts XML to get accountIdKeys
+        root = ET.fromstring(accounts_response.text)
+        accounts = []
+        for account in root.findall('.//Account'):
+            account_id_key = account.find('accountIdKey').text
+            account_desc = account.find('accountDesc').text
+            account_type = account.find('accountType').text
+            accounts.append({
+                "accountIdKey": account_id_key,
+                "accountDesc": account_desc,
+                "accountType": account_type,
+            })
+        
+        logger.info(f"Found {len(accounts)} accounts")
+        
+        # Step 2: Get portfolio for each account
+        portfolios = []
+        for account in accounts:
+            account_id_key = account["accountIdKey"]
+            logger.info(f"Fetching portfolio for {account['accountDesc']}...")
+            
+            portfolio_url = f"{base_url}/accounts/{account_id_key}/portfolio"
+            portfolio_response = oauth_manager.session.get(portfolio_url)
+            
+            if portfolio_response.status_code == 200:
+                portfolios.append({
+                    "account": account,
+                    "portfolio": portfolio_response.text,
+                })
+            else:
+                portfolios.append({
+                    "account": account,
+                    "portfolio": None,
+                    "error": f"Status {portfolio_response.status_code}",
+                })
+        
+        return {
+            "status": "success",
+            "account_count": len(accounts),
+            "portfolios": portfolios,
+        }
+    except Exception as e:
+        logger.error(f"Error fetching portfolios: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+        }
+
+
 if __name__ == "__main__":
     import uvicorn
 
