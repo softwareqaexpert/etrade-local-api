@@ -2,7 +2,7 @@
 
 import sys
 import logging
-from fastmcp import Server
+from fastmcp.server import Server
 
 # Configure stderr logging for MCP (critical for STDIO transport)
 logging.basicConfig(
@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 # Create FastMCP server
 server = Server("etrade-local-api")
+logger.info("FastMCP server initialized")
 
 
 @server.tool()
@@ -89,7 +90,7 @@ def get_quote(symbols: str) -> dict:
 def main():
     """Run the MCP server."""
     logger.info("Starting E*TRADE Local API MCP Server")
-    server.run_stdio()
+    server.run()
 
 
 if __name__ == "__main__":

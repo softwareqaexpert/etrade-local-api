@@ -31,6 +31,5 @@ def test_documentation(client):
     """Test documentation endpoint."""
     response = client.get("/docs")
     assert response.status_code == 200
-    data = response.json()
-    assert "swagger_ui" in data
-    assert "openapi_schema" in data
+    # /docs returns HTML, not JSON
+    assert "swagger" in response.text.lower() or "html" in response.text.lower()

@@ -1,10 +1,13 @@
 """Configuration management using Pydantic settings."""
 
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
+
+    model_config = ConfigDict(env_file=".env", case_sensitive=False)
 
     # E*TRADE OAuth - Sandbox
     etrade_consumer_key_sandbox: str = ""
@@ -29,12 +32,6 @@ class Settings(BaseSettings):
 
     # Logging
     log_level: str = "INFO"
-
-    class Config:
-        """Pydantic config."""
-
-        env_file = ".env"
-        case_sensitive = False
 
     @property
     def consumer_key(self) -> str:
