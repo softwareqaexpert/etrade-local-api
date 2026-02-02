@@ -107,6 +107,12 @@ def test_balances_endpoint_exists(client):
     assert response.status_code != 404
 
 
+def test_summary_endpoint_exists(client):
+    """Test summary endpoint exists."""
+    response = client.get("/summary")
+    assert response.status_code != 404
+
+
 def test_market_quote_endpoint_exists(client):
     """Test market quote endpoint exists."""
     response = client.get("/market/quote/AAPL")

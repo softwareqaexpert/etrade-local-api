@@ -346,6 +346,121 @@ async def get_all_balances():
         }
 
 
+@app.get("/summary")
+async def get_account_summary():
+    """
+    Get comprehensive summary of all accounts with balances and positions.
+    
+    Returns parsed JSON with:
+    - Each account's balance (cash, buying power)
+    - Each account's positions (symbol, qty, price, value, gain/loss)
+    - Totals across all accounts
+    """
+    import xml.etree.ElementTree as ET
+    
+    try:
+        if not oauth_manager.ensure_authenticated():
+            return {
+                "status": "error",
+                "error": "Not authenticated. Call /oauth/request-token first.",
+            }
+        
+        logger.info("Fetching account summary...")
+        if settings.etrade_sandbox:
+            base_url = "https://apisb.etrade.com/v1"
+        else:
+            base_url = "https://api.etrade.com/v1"
+        
+        # Get accounts
+        accounts_response = oauth_manager.session.get(f"{base_url}/accounts/list")
+        accounts_response.raise_for_status()
+        root = ET.fromstring(accounts_response.text)
+        
+        accounts_data = []
+        total_cash = 0
+        total_portfolio = 0
+        total_gain = 0
+        
+        for account in root.findall('.//Account'):
+            account_id_key = account.find('accountIdKey').text
+            account_info = {
+                "accountIdKey": account_id_key,
+                "accountDesc": account.find('accountDesc').text,
+                "accountType": account.find('accountType').text,
+            }
+            
+            # Get balance
+            bal_resp = oauth_manager.session.get(
+                f"{base_url}/accounts/{account_id_key}/balance",
+                params={"instType": "BROKERAGE", "realTimeNAV": "true"}
+            )
+            
+            cash = 0
+            if bal_resp.status_code == 200:
+                bal_root = ET.fromstring(bal_resp.text)
+                cash_elem = bal_root.find('.//cashAvailableForInvestment')
+                cash = float(cash_elem.text) if cash_elem is not None else 0
+            
+            # Get positions
+            port_resp = oauth_manager.session.get(f"{base_url}/accounts/{account_id_key}/portfolio")
+            
+            positions = []
+            portfolio_value = 0
+            account_gain = 0
+            
+            if port_resp.status_code == 200:
+                port_root = ET.fromstring(port_resp.text)
+                for p in port_root.findall('.//Position'):
+                    symbol = p.find('.//symbol').text
+                    qty = float(p.find('quantity').text)
+                    price_elem = p.find('.//lastTrade')
+                    price = float(price_elem.text) if price_elem is not None else 0
+                    value = float(p.find('marketValue').text)
+                    gain = float(p.find('totalGain').text)
+                    gain_pct = float(p.find('totalGainPct').text)
+                    
+                    positions.append({
+                        "symbol": symbol,
+                        "quantity": qty,
+                        "price": price,
+                        "marketValue": value,
+                        "gain": gain,
+                        "gainPct": gain_pct,
+                    })
+                    portfolio_value += value
+                    account_gain += gain
+            
+            accounts_data.append({
+                "account": account_info,
+                "cash": cash,
+                "portfolioValue": portfolio_value,
+                "totalValue": cash + portfolio_value,
+                "totalGain": account_gain,
+                "positions": positions,
+            })
+            
+            total_cash += cash
+            total_portfolio += portfolio_value
+            total_gain += account_gain
+        
+        return {
+            "status": "success",
+            "accounts": accounts_data,
+            "totals": {
+                "cash": total_cash,
+                "portfolioValue": total_portfolio,
+                "totalValue": total_cash + total_portfolio,
+                "totalGain": total_gain,
+            },
+        }
+    except Exception as e:
+        logger.error(f"Error fetching summary: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+        }
+
+
 @app.get("/portfolios")
 async def get_all_portfolios():
     """
