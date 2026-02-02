@@ -2,7 +2,7 @@
 
 import sys
 import logging
-from fastmcp.server import Server
+from fastmcp import FastMCP
 
 # Configure stderr logging for MCP (critical for STDIO transport)
 logging.basicConfig(
@@ -14,7 +14,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Create FastMCP server
-server = Server("etrade-local-api")
+server = FastMCP("etrade-local-api")
 logger.info("FastMCP server initialized")
 
 
