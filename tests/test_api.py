@@ -33,3 +33,21 @@ def test_documentation(client):
     assert response.status_code == 200
     # /docs returns HTML, not JSON
     assert "swagger" in response.text.lower() or "html" in response.text.lower()
+
+
+def test_oauth_request_token_endpoint_exists(client):
+    """Test OAuth request token endpoint exists."""
+    response = client.get("/oauth/request-token")
+    # Should not be 404 (endpoint should exist)
+    assert response.status_code != 404
+
+
+def test_oauth_request_token_returns_valid_data(client):
+    """Test OAuth request token returns oauth_token."""
+    response = client.get("/oauth/request-token")
+    # Should be 200 or handle gracefully
+    if response.status_code == 200:
+        data = response.json()
+        assert "oauth_token" in data
+        assert "oauth_token_secret" in data
+        assert "authorization_url" in data

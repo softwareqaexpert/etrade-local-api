@@ -4,6 +4,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.config import settings
+from api.oauth import oauth_manager
 
 # Configure logging
 logging.basicConfig(level=settings.log_level)
@@ -56,6 +57,29 @@ async def documentation():
         "openapi_schema": "/openapi.json",
         "redoc": "/redoc",
     }
+
+
+@app.get("/oauth/request-token")
+async def oauth_request_token():
+    """
+    Step 1 of OAuth flow: Get request token.
+    
+    Returns authorization URL for user to visit.
+    """
+    try:
+        token_data = oauth_manager.get_request_token()
+        return {
+            "oauth_token": token_data["oauth_token"],
+            "oauth_token_secret": token_data["oauth_token_secret"],
+            "authorization_url": token_data["authorization_url"],
+            "status": "success",
+        }
+    except Exception as e:
+        logger.error(f"OAuth request token error: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+        }
 
 
 if __name__ == "__main__":
