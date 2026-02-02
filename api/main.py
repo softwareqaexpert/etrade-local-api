@@ -60,6 +60,30 @@ async def documentation():
     }
 
 
+@app.get("/auth/status")
+async def auth_status():
+    """
+    Check authentication status.
+    
+    Returns whether tokens are valid and when they expire.
+    """
+    if not oauth_manager.is_authenticated():
+        return {
+            "authenticated": False,
+            "message": "Not authenticated. Call /oauth/request-token to start.",
+        }
+    
+    # Check if tokens can be used
+    can_use = oauth_manager.ensure_authenticated()
+    
+    return {
+        "authenticated": can_use,
+        "token_date": oauth_manager.token_date,
+        "last_used": oauth_manager.last_used.isoformat() if oauth_manager.last_used else None,
+        "message": "Ready" if can_use else "Tokens expired, re-authentication required",
+    }
+
+
 @app.get("/oauth/request-token")
 async def oauth_request_token():
     """
@@ -129,7 +153,7 @@ async def get_accounts():
     Returns: List of accounts with IDs and balances
     """
     try:
-        if not oauth_manager.is_authenticated():
+        if not oauth_manager.ensure_authenticated():
             return {
                 "status": "error",
                 "error": "Not authenticated. Call /oauth/request-token first.",
@@ -137,14 +161,20 @@ async def get_accounts():
         
         logger.info("Fetching accounts from E*TRADE")
         
-        # Call E*TRADE Accounts API to get list
-        accounts_list = etrade_client.accounts.get_account_list()
+        # Use authenticated session directly
+        if settings.etrade_sandbox:
+            url = "https://apisb.etrade.com/v1/accounts/list"
+        else:
+            url = "https://api.etrade.com/v1/accounts/list"
+        
+        response = oauth_manager.session.get(url)
+        response.raise_for_status()
         
         logger.info(f"Got accounts response")
         
         return {
             "status": "success",
-            "accounts": accounts_list,
+            "accounts": response.text,
         }
     except Exception as e:
         logger.error(f"Error fetching accounts: {e}")
@@ -165,7 +195,7 @@ async def get_portfolio(account_id_key: str):
     Returns: List of positions with symbol, quantity, market value, gain/loss
     """
     try:
-        if not oauth_manager.is_authenticated():
+        if not oauth_manager.ensure_authenticated():
             return {
                 "status": "error",
                 "error": "Not authenticated. Call /oauth/request-token first.",
