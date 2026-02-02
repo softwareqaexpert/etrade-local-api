@@ -135,3 +135,21 @@ def test_market_optionexpiredate_endpoint_exists(client):
     """Test option expiry dates endpoint exists."""
     response = client.get("/market/optionexpiredate?symbol=AAPL")
     assert response.status_code != 404
+
+
+def test_orders_list_endpoint_exists(client):
+    """Test list orders endpoint exists."""
+    response = client.get("/orders/test-account-key")
+    assert response.status_code != 404
+
+
+def test_orders_preview_endpoint_exists(client):
+    """Test preview order endpoint exists."""
+    response = client.post("/orders/test-account-key/preview", json={})
+    assert response.status_code != 404
+
+
+def test_orders_cancel_endpoint_exists(client):
+    """Test cancel order endpoint exists."""
+    response = client.put("/orders/test-account-key/cancel?order_id=123")
+    assert response.status_code != 404

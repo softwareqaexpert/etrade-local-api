@@ -724,6 +724,222 @@ async def get_option_expiry_dates(symbol: str, expiry_type: str = "ALL"):
         }
 
 
+# =============================================================================
+# Orders API Endpoints
+# =============================================================================
+
+@app.get("/orders/{account_id_key}")
+async def list_orders(
+    account_id_key: str,
+    status: str = None,
+    from_date: str = None,
+    to_date: str = None,
+    symbol: str = None,
+    count: int = 25,
+):
+    """
+    List orders for an account.
+    
+    Args:
+        account_id_key: Account ID key
+        status: OPEN, EXECUTED, CANCELLED, etc.
+        from_date, to_date: Date range (MMDDYYYY)
+        symbol: Filter by symbol
+        count: Number of orders to return
+    """
+    try:
+        if not oauth_manager.ensure_authenticated():
+            return {"status": "error", "error": "Not authenticated."}
+        
+        logger.info(f"Fetching orders for account: {account_id_key}")
+        
+        if settings.etrade_sandbox:
+            url = f"https://apisb.etrade.com/v1/accounts/{account_id_key}/orders"
+        else:
+            url = f"https://api.etrade.com/v1/accounts/{account_id_key}/orders"
+        
+        params = {"count": count}
+        if status:
+            params["status"] = status
+        if from_date:
+            params["fromDate"] = from_date
+        if to_date:
+            params["toDate"] = to_date
+        if symbol:
+            params["symbol"] = symbol
+        
+        response = oauth_manager.session.get(url, params=params)
+        response.raise_for_status()
+        
+        return {"status": "success", "orders": response.text}
+    except Exception as e:
+        logger.error(f"Error fetching orders: {e}")
+        return {"status": "error", "error": str(e)}
+
+
+@app.post("/orders/{account_id_key}/preview")
+async def preview_order(account_id_key: str, order: dict):
+    """
+    Preview an order before placing it.
+    
+    Returns previewId required for placing the order.
+    
+    Example order:
+    {
+        "orderType": "EQ",
+        "clientOrderId": "my-order-123",
+        "symbol": "AAPL",
+        "action": "BUY",
+        "quantity": 10,
+        "priceType": "LIMIT",
+        "limitPrice": 150.00,
+        "orderTerm": "GOOD_FOR_DAY"
+    }
+    """
+    try:
+        if not oauth_manager.ensure_authenticated():
+            return {"status": "error", "error": "Not authenticated."}
+        
+        logger.info(f"Previewing order for account: {account_id_key}")
+        
+        if settings.etrade_sandbox:
+            url = f"https://apisb.etrade.com/v1/accounts/{account_id_key}/orders/preview"
+        else:
+            url = f"https://api.etrade.com/v1/accounts/{account_id_key}/orders/preview"
+        
+        # Build E*TRADE order request format
+        etrade_order = {
+            "PreviewOrderRequest": {
+                "orderType": order.get("orderType", "EQ"),
+                "clientOrderId": order.get("clientOrderId", str(int(__import__('time').time()))),
+                "Order": [{
+                    "allOrNone": "false",
+                    "priceType": order.get("priceType", "MARKET"),
+                    "orderTerm": order.get("orderTerm", "GOOD_FOR_DAY"),
+                    "marketSession": order.get("marketSession", "REGULAR"),
+                    "Instrument": [{
+                        "Product": {
+                            "securityType": "EQ",
+                            "symbol": order["symbol"]
+                        },
+                        "orderAction": order["action"],
+                        "quantityType": "QUANTITY",
+                        "quantity": str(order["quantity"])
+                    }]
+                }]
+            }
+        }
+        
+        if order.get("limitPrice"):
+            etrade_order["PreviewOrderRequest"]["Order"][0]["limitPrice"] = str(order["limitPrice"])
+        if order.get("stopPrice"):
+            etrade_order["PreviewOrderRequest"]["Order"][0]["stopPrice"] = str(order["stopPrice"])
+        
+        import json
+        response = oauth_manager.session.post(
+            url,
+            headers={"Content-Type": "application/json"},
+            data=json.dumps(etrade_order)
+        )
+        response.raise_for_status()
+        
+        return {"status": "success", "preview": response.text}
+    except Exception as e:
+        logger.error(f"Error previewing order: {e}")
+        return {"status": "error", "error": str(e)}
+
+
+@app.post("/orders/{account_id_key}/place")
+async def place_order(account_id_key: str, order: dict, preview_id: str):
+    """
+    Place an order after previewing.
+    
+    Args:
+        account_id_key: Account ID key
+        order: Same order dict as preview
+        preview_id: previewId from preview response
+    """
+    try:
+        if not oauth_manager.ensure_authenticated():
+            return {"status": "error", "error": "Not authenticated."}
+        
+        logger.info(f"Placing order for account: {account_id_key}")
+        
+        if settings.etrade_sandbox:
+            url = f"https://apisb.etrade.com/v1/accounts/{account_id_key}/orders/place"
+        else:
+            url = f"https://api.etrade.com/v1/accounts/{account_id_key}/orders/place"
+        
+        etrade_order = {
+            "PlaceOrderRequest": {
+                "orderType": order.get("orderType", "EQ"),
+                "clientOrderId": order.get("clientOrderId", str(int(__import__('time').time()))),
+                "PreviewIds": [{"previewId": preview_id}],
+                "Order": [{
+                    "allOrNone": "false",
+                    "priceType": order.get("priceType", "MARKET"),
+                    "orderTerm": order.get("orderTerm", "GOOD_FOR_DAY"),
+                    "marketSession": order.get("marketSession", "REGULAR"),
+                    "Instrument": [{
+                        "Product": {
+                            "securityType": "EQ",
+                            "symbol": order["symbol"]
+                        },
+                        "orderAction": order["action"],
+                        "quantityType": "QUANTITY",
+                        "quantity": str(order["quantity"])
+                    }]
+                }]
+            }
+        }
+        
+        if order.get("limitPrice"):
+            etrade_order["PlaceOrderRequest"]["Order"][0]["limitPrice"] = str(order["limitPrice"])
+        if order.get("stopPrice"):
+            etrade_order["PlaceOrderRequest"]["Order"][0]["stopPrice"] = str(order["stopPrice"])
+        
+        import json
+        response = oauth_manager.session.post(
+            url,
+            headers={"Content-Type": "application/json"},
+            data=json.dumps(etrade_order)
+        )
+        response.raise_for_status()
+        
+        return {"status": "success", "order": response.text}
+    except Exception as e:
+        logger.error(f"Error placing order: {e}")
+        return {"status": "error", "error": str(e)}
+
+
+@app.put("/orders/{account_id_key}/cancel")
+async def cancel_order(account_id_key: str, order_id: str):
+    """Cancel an open order."""
+    try:
+        if not oauth_manager.ensure_authenticated():
+            return {"status": "error", "error": "Not authenticated."}
+        
+        logger.info(f"Cancelling order {order_id} for account: {account_id_key}")
+        
+        if settings.etrade_sandbox:
+            url = f"https://apisb.etrade.com/v1/accounts/{account_id_key}/orders/cancel"
+        else:
+            url = f"https://api.etrade.com/v1/accounts/{account_id_key}/orders/cancel"
+        
+        import json
+        response = oauth_manager.session.put(
+            url,
+            headers={"Content-Type": "application/json"},
+            data=json.dumps({"CancelOrderRequest": {"orderId": order_id}})
+        )
+        response.raise_for_status()
+        
+        return {"status": "success", "result": response.text}
+    except Exception as e:
+        logger.error(f"Error cancelling order: {e}")
+        return {"status": "error", "error": str(e)}
+
+
 if __name__ == "__main__":
     import uvicorn
 
